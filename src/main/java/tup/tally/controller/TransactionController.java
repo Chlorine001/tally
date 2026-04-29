@@ -1,15 +1,11 @@
 package tup.tally.controller;
 
-import org.springframework.web.bind.annotation.*;
-import tup.tally.entity.Transaction;
-
-import tup.tally.entity.Transaction;
-import tup.tally.service.TransactionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
-
+import tup.tally.entity.Transaction;
+import tup.tally.service.TransactionService;
 
 import java.util.List;
 
@@ -62,7 +58,9 @@ public class TransactionController {
             return transactionService.listAll();
         } else {
             // 只传了一个参数的情况，默认返回全部（也可以抛错，但为了友好返回全部）
-            return transactionService.listAll();
+            // 只有月返回当年信息，只有年返回年全部信息
+//            return transactionService.list(year, month);
+            throw new RuntimeException("Invalid parameters: year and month cannot be null at the same time.");
         }
     }
 }
