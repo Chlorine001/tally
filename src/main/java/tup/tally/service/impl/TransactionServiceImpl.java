@@ -65,8 +65,8 @@ public class TransactionServiceImpl implements TransactionService {
         if (transaction.getDate() == null) {
             transaction.setDate(LocalDate.now());
         }
-        if (transaction.getTags() == null) {
-            transaction.setTags(new ArrayList<>());
+        if (transaction.getTagIds() == null) {
+            transaction.setTagIds(new ArrayList<>());
         }
 
         LocalDate date = transaction.getDate();

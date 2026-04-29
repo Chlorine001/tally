@@ -1,4 +1,5 @@
 package tup.tally.entity;
+
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -31,7 +32,8 @@ public class Transaction {
     @NotNull(message = "日期不能为空")
     private LocalDate date;             // 记账日期
     private String currency;           // 默认 "CNY"
-    private List<String> tags;         // 标签列表
+//    private List<String> tags;         // 标签列表
+    private List<String> tagIds;       // 标签 ID 列表（不再存标签名称）
     private String note;               // 备注
     private Long createdAt;            // 毫秒时间戳
     private Long updatedAt;
