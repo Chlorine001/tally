@@ -17,10 +17,13 @@ import jakarta.annotation.PostConstruct;
 
 import java.io.*;
 import java.nio.file.*;
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 
 /**
  * @author chlorine
@@ -71,9 +74,13 @@ public class ActionLogService {
         replayAllActions();
     }
 
-    // 获取指定月份的交易日志路径
-    private Path getTransactionLogPath(YearMonth yearMonth) {
-        return actionsDir.resolve(yearMonth.getYear() + "-" + String.format("%02d", yearMonth.getMonthValue()) + ".log");
+    // 获取指定月份的交易日志路径--修改 getTransactionLogPath 为按日
+    private Path getTransactionLogPath(LocalDate date) {
+//        .\repo_cache\actions\2026-04.log
+//        return actionsDir.resolve(yearMonth.getYear() + "-" + String.format("%02d", yearMonth.getMonthValue()) + ".log");
+        return actionsDir.resolve(String.valueOf(date.getYear()))
+                .resolve(String.format("%02d", date.getMonthValue()))
+                .resolve(date.getDayOfMonth() + ".log");
     }
 
     // 追加一条操作日志（同步写入文件）
@@ -83,8 +90,10 @@ public class ActionLogService {
         if (action instanceof MetaAction) {
             targetFile = metaLogPath;
         } else {
-            YearMonth ym = YearMonth.from(java.time.Instant.ofEpochMilli(ts).atZone(ZoneId.systemDefault()).toLocalDate());
-            targetFile = getTransactionLogPath(ym);
+//            YearMonth ym = YearMonth.from(java.time.Instant.ofEpochMilli(ts).atZone(ZoneId.systemDefault()).toLocalDate());
+//            targetFile = getTransactionLogPath(ym);
+            LocalDate date = Instant.ofEpochMilli(ts).atZone(ZoneId.systemDefault()).toLocalDate();
+            targetFile = getTransactionLogPath(date);
         }
         Files.createDirectories(targetFile.getParent());
         // 以追加模式写入 JSON 行（每行一个 Action）
@@ -139,24 +148,48 @@ public class ActionLogService {
 
         // 读取所有 actions/*.log 文件，按时间戳排序
         List<Action> allActions = new ArrayList<>();
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(actionsDir, "*.log")) {
-            for (Path logFile : stream) {
-                // 跳过 meta.log，单独处理保证顺序统一
-                if (logFile.getFileName().toString().equals("meta.log")) continue;
-                // 读取所有交易日志文件
-                try (BufferedReader reader = Files.newBufferedReader(logFile)) {
-                    String line;
-                    while ((line = reader.readLine()) != null) {
-                        if (line.trim().isEmpty()) continue;
-                        try {
-                            Action action = objectMapper.readValue(line, Action.class);
-                            allActions.add(action);
-                        } catch (Exception e) {
-                            log.warn("Skipping invalid action line in {}: {}", logFile.getFileName(), line, e);
+//        try (DirectoryStream<Path> stream = Files.newDirectoryStream(actionsDir, "*.log")) {
+//            for (Path logFile : stream) {
+//                // 跳过 meta.log，单独处理保证顺序统一
+//                if (logFile.getFileName().toString().equals("meta.log")) continue;
+//                // 读取所有交易日志文件
+//                try (BufferedReader reader = Files.newBufferedReader(logFile)) {
+//                    String line;
+//                    while ((line = reader.readLine()) != null) {
+//                        if (line.trim().isEmpty()) continue;
+//                        try {
+//                            Action action = actionMapper.readValue(line, Action.class);
+//                            allActions.add(action);
+//                        } catch (Exception e) {
+//                            log.warn("Skipping invalid action line in {}: {}", logFile.getFileName(), line, e);
+//                        }
+//                    }
+//                }
+//            }
+//        }
+        // 递归遍历 actionsDir 下所有 .log 文件，排除 meta.log
+        try (Stream<Path> walk = Files.walk(actionsDir)) {
+            walk.filter(Files::isRegularFile)
+                    .filter(p -> p.toString().endsWith(".log"))
+                    .filter(p -> !p.getFileName().toString().equals("meta.log"))
+                    .forEach(logFile -> {
+                        try (BufferedReader reader = Files.newBufferedReader(logFile)) {
+                            String line;
+                            while ((line = reader.readLine()) != null) {
+                                if (line.trim().isEmpty()) continue;
+                                try {
+                                    Action action = actionMapper.readValue(line, Action.class);
+                                    synchronized (allActions) {
+                                        allActions.add(action);
+                                    }
+                                } catch (Exception e) {
+                                    log.warn("Skipping invalid action line in {}: {}", logFile, line, e);
+                                }
+                            }
+                        } catch (IOException e) {
+                            log.warn("Failed to read log file: {}", logFile, e);
                         }
-                    }
-                }
-            }
+                    });
         }
 
         // 读取 meta.log
