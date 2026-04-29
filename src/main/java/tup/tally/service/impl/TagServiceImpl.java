@@ -142,7 +142,7 @@ public class TagServiceImpl implements TagService {
             action.setKey(TAGS_KEY);
             action.setValue(tagMap);
             actionLogService.appendAction(action);
-//            Files.move(legacyPath, legacyPath.resolveSibling("tags.json.back"));
+            Files.move(legacyPath, legacyPath.resolveSibling("tags.json.back"));
             log.info("Migrated legacy tags to CRDT");
         }
     }

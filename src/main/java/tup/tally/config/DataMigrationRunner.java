@@ -16,7 +16,7 @@ import java.nio.file.Paths;
  * @Date 2026-04-29
  * @Description 启动时迁移旧的tags数据，CRDT一致
  */
-@Component
+//@Component
 public class DataMigrationRunner implements CommandLineRunner {
 
     private final TagServiceImpl tagService;
