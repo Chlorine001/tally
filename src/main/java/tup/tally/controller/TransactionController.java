@@ -9,6 +9,7 @@ import tup.tally.entity.crdt.AddAction;
 import tup.tally.entity.crdt.DeleteAction;
 import tup.tally.entity.crdt.UpdateAction;
 import tup.tally.service.ActionLogService;
+import tup.tally.service.GitSyncService;
 
 import java.util.List;
 import java.util.UUID;
@@ -26,6 +27,7 @@ public class TransactionController {
 
 
     private final ActionLogService actionLogService;
+    private final GitSyncService gitSyncService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -37,6 +39,7 @@ public class TransactionController {
         AddAction action = new AddAction();
         action.setContent(transaction);
         actionLogService.appendAction(action);
+        gitSyncService.commitAndPush("Add transaction: " + transaction.getId());
         return transaction;
     }
 
@@ -48,6 +51,7 @@ public class TransactionController {
         action.setTargetId(id);
         action.setNewValue(transaction);
         actionLogService.appendAction(action);
+        gitSyncService.commitAndPush("Update transaction: " + id);
         return transaction;
     }
 
@@ -57,6 +61,7 @@ public class TransactionController {
         DeleteAction action = new DeleteAction();
         action.setTargetId(id);
         actionLogService.appendAction(action);
+        gitSyncService.commitAndPush("Delete transaction: " + id);
     }
 
     @GetMapping("/{id}")
