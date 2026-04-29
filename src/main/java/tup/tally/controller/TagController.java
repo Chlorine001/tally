@@ -20,26 +20,40 @@ import java.util.List;
 public class TagController {
 
     private final TagService tagService;
-
+    /**
+     * 创建新标签
+     */
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public Tag create(@Valid @RequestBody Tag tag) {
-        return tagService.create(tag);
+    public Tag createTag(@Valid @RequestBody Tag tag) throws Exception {
+        // 确保没有 id（让服务自动生成）
+        tag.setId(null);
+        return tagService.saveTag(tag);
     }
 
+    /**
+     * 更新标签（全量替换）
+     */
     @PutMapping("/{id}")
-    public Tag update(@PathVariable String id, @Valid @RequestBody Tag tag) {
-        return tagService.update(id, tag);
+    public Tag updateTag(@PathVariable String id, @Valid @RequestBody Tag tag) throws Exception {
+        tag.setId(id);   // 确保路径 id 被使用
+        return tagService.saveTag(tag);
     }
 
+    /**
+     * 删除标签
+     */
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable String id) {
-        tagService.delete(id);
+    public void deleteTag(@PathVariable String id) throws Exception {
+        tagService.deleteTag(id);
     }
 
+    /**
+     * 根据 ID 获取单个标签
+     */
     @GetMapping("/{id}")
-    public Tag getById(@PathVariable String id) {
+    public Tag getTagById(@PathVariable String id) {
         Tag tag = tagService.findById(id);
         if (tag == null) {
             throw new RuntimeException("Tag not found: " + id);
@@ -47,8 +61,24 @@ public class TagController {
         return tag;
     }
 
+    /**
+     * 获取所有标签
+     */
     @GetMapping
-    public List<Tag> listAll() {
+    public List<Tag> listAllTags() {
         return tagService.listAll();
     }
+
+    /**
+     * 根据名称搜索标签（可选）
+     */
+    @GetMapping("/search")
+    public Tag searchTagByName(@RequestParam String name) {
+        Tag tag = tagService.findByName(name);
+        if (tag == null) {
+            throw new RuntimeException("Tag not found: " + name);
+        }
+        return tag;
+    }
+
 }

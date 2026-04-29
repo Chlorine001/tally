@@ -4,19 +4,18 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import tup.tally.entity.Tag;
+import tup.tally.entity.crdt.MetaAction;
+import tup.tally.service.ActionLogService;
 import tup.tally.service.TagService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author chlorine
@@ -28,124 +27,107 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 @Service
 public class TagServiceImpl implements TagService {
 
-    private static final String METADATA_DIR = "metadata";
-    private static final String TAGS_FILE = "tags.json";
-    private final ObjectMapper objectMapper;
-    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+    private final ActionLogService actionLogService;
+    private final ObjectMapper objectMapper;  // 用于转换和迁移
+    private static final String TAGS_KEY = "tags";
 
-    public TagServiceImpl() {
+    // 使用构造器注入，让 Spring 提供 ActionLogService 的 bean
+    public TagServiceImpl(ActionLogService actionLogService) {
+        this.actionLogService = actionLogService;
         this.objectMapper = new ObjectMapper();
-        this.objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
-        try {
-            Files.createDirectories(Paths.get(METADATA_DIR));
-        } catch (IOException e) {
-            log.error("Failed to create metadata directory", e);
-        }
-    }
-
-    private Path getTagsPath() {
-        return Paths.get(METADATA_DIR, TAGS_FILE);
-    }
-
-    private List<Tag> loadTags() {
-        lock.readLock().lock();
-        try {
-            Path path = getTagsPath();
-            if (Files.exists(path)) {
-                return objectMapper.readValue(path.toFile(), new TypeReference<>() {});
-            } else {
-                return new ArrayList<>();
-            }
-        } catch (IOException e) {
-            log.error("Failed to load tags", e);
-            return new ArrayList<>();
-        } finally {
-            lock.readLock().unlock();
-        }
-    }
-
-    private void saveTags(List<Tag> tags) {
-        lock.writeLock().lock();
-        try {
-            Path path = getTagsPath();
-            objectMapper.writeValue(path.toFile(), tags);
-        } catch (IOException e) {
-            log.error("Failed to save tags", e);
-            throw new RuntimeException("Failed to save tags", e);
-        } finally {
-            lock.writeLock().unlock();
-        }
     }
 
     @Override
-    public Tag create(Tag tag) {
+    public Tag saveTag(Tag tag) throws Exception {
+        // 参数校验
         if (tag.getName() == null || tag.getName().trim().isEmpty()) {
             throw new IllegalArgumentException("Tag name cannot be empty");
         }
-        // 检查唯一性
-        if (findByName(tag.getName()) != null) {
-            throw new RuntimeException("Tag already exists: " + tag.getName());
+        // 新建或更新
+        boolean isNew = (tag.getId() == null);
+        if (isNew) {
+            tag.setId(UUID.randomUUID().toString());
+            tag.setCreatedAt(System.currentTimeMillis());
+        } else {
+            Tag existing = findById(tag.getId());
+            if (existing == null) {
+                throw new RuntimeException("Tag not found: " + tag.getId());
+            }
+            tag.setCreatedAt(existing.getCreatedAt());
         }
-        tag.setId(UUID.randomUUID().toString());
-        long now = System.currentTimeMillis();
-        tag.setCreatedAt(now);
-        tag.setUpdatedAt(now);
-        List<Tag> tags = loadTags();
-        tags.add(tag);
-        saveTags(tags);
+        tag.setUpdatedAt(System.currentTimeMillis());
+
+        // 唯一性校验（排除自身）
+        Tag conflict = findByName(tag.getName());
+        if (conflict != null && !conflict.getId().equals(tag.getId())) {
+            throw new RuntimeException("Tag name already exists: " + tag.getName());
+        }
+
+        // 获取当前所有标签（Map形式）
+        Map<String, Tag> current = getAllTagsMap();
+        current.put(tag.getId(), tag);
+
+        // 生成 MetaAction 并追加
+        MetaAction action = new MetaAction();
+        action.setKey(TAGS_KEY);
+        action.setValue(current);
+        actionLogService.appendAction(action);
+
         return tag;
     }
 
     @Override
-    public Tag update(String id, Tag updated) {
-        List<Tag> tags = loadTags();
-        int index = -1;
-        for (int i = 0; i < tags.size(); i++) {
-            if (tags.get(i).getId().equals(id)) {
-                index = i;
-                break;
-            }
-        }
-        if (index == -1) {
+    public void deleteTag(String id) throws Exception {
+        Map<String, Tag> current = getAllTagsMap();
+        if (current.remove(id) == null) {
             throw new RuntimeException("Tag not found: " + id);
         }
-        Tag existing = tags.get(index);
-        // 如果名称改变，检查唯一性
-        if (!existing.getName().equals(updated.getName()) && findByName(updated.getName()) != null) {
-            throw new RuntimeException("Tag already exists: " + updated.getName());
-        }
-        existing.setName(updated.getName());
-        existing.setColor(updated.getColor());
-        existing.setIcon(updated.getIcon());
-        existing.setUpdatedAt(System.currentTimeMillis());
-        tags.set(index, existing);
-        saveTags(tags);
-        return existing;
-    }
-
-    @Override
-    public void delete(String id) {
-        List<Tag> tags = loadTags();
-        boolean removed = tags.removeIf(t -> t.getId().equals(id));
-        if (removed) {
-            saveTags(tags);
-        } else {
-            throw new RuntimeException("Tag not found: " + id);
-        }
+        MetaAction action = new MetaAction();
+        action.setKey(TAGS_KEY);
+        action.setValue(current);
+        actionLogService.appendAction(action);
     }
 
     @Override
     public Tag findById(String id) {
-        return loadTags().stream().filter(t -> t.getId().equals(id)).findFirst().orElse(null);
+        return getAllTagsMap().get(id);
     }
 
     @Override
     public Tag findByName(String name) {
-        return loadTags().stream().filter(t -> t.getName().equals(name)).findFirst().orElse(null);
+        return getAllTagsMap().values().stream()
+                .filter(t -> t.getName().equals(name))
+                .findFirst()
+                .orElse(null);
     }
 
     @Override
     public List<Tag> listAll() {
-        return loadTags();
+        return new ArrayList<>(getAllTagsMap().values());
+    }
+
+    // 从 ActionLogService 中获取当前标签 Map，处理可能的类型转换
+    @SuppressWarnings("unchecked")
+    private Map<String, Tag> getAllTagsMap() {
+        Object raw = actionLogService.getMetaData().get(TAGS_KEY);
+        if (raw == null) {
+            return new HashMap<>();
+        }
+        // 如果已经是 Map<String, Tag> 则直接返回
+        if (raw instanceof Map) {
+            Map<?, ?> map = (Map<?, ?>) raw;
+            Map<String, Tag> result = new HashMap<>();
+            for (Map.Entry<?, ?> entry : map.entrySet()) {
+                if (entry.getKey() instanceof String && entry.getValue() instanceof Tag) {
+                    result.put((String) entry.getKey(), (Tag) entry.getValue());
+                } else if (entry.getValue() instanceof Map) {
+                    // 因 Jackson 反序列化后可能是 LinkedHashMap，需要转换
+                    Tag tag = objectMapper.convertValue(entry.getValue(), Tag.class);
+                    result.put((String) entry.getKey(), tag);
+                }
+            }
+            return result;
+        }
+        return new HashMap<>();
     }
 }

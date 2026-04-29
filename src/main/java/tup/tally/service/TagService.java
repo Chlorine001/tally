@@ -1,5 +1,9 @@
 package tup.tally.service;
+import tools.jackson.databind.ObjectMapper;
 import tup.tally.entity.Tag;
+
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 /**
  * @author chlorine
@@ -8,10 +12,11 @@ import java.util.List;
  * @Description
  */
 public interface TagService {
-    Tag create(Tag tag);
-    Tag update(String id, Tag tag);
-    void delete(String id);
+    Tag saveTag(Tag tag) throws Exception;
+    void deleteTag(String id) throws Exception;
+
     Tag findById(String id);
     Tag findByName(String name);
     List<Tag> listAll();
+
 }
