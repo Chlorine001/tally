@@ -130,4 +130,20 @@ public class TagServiceImpl implements TagService {
         }
         return new HashMap<>();
     }
+
+
+    // 迁移旧文件（可选，在启动时调用）
+    public void migrateFromLegacyFile(Path legacyPath) throws IOException {
+        if (Files.exists(legacyPath) && !getAllTagsMap().isEmpty()) {
+            List<Tag> tags = objectMapper.readValue(legacyPath.toFile(), new TypeReference<List<Tag>>() {
+            });
+            Map<String, Tag> tagMap = tags.stream().collect(Collectors.toMap(Tag::getId, t -> t));
+            MetaAction action = new MetaAction();
+            action.setKey(TAGS_KEY);
+            action.setValue(tagMap);
+            actionLogService.appendAction(action);
+//            Files.move(legacyPath, legacyPath.resolveSibling("tags.json.back"));
+            log.info("Migrated legacy tags to CRDT");
+        }
+    }
 }

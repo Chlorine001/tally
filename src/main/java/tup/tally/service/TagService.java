@@ -19,4 +19,5 @@ public interface TagService {
     Tag findByName(String name);
     List<Tag> listAll();
 
+    void migrateFromLegacyFile(Path legacyTags) throws IOException;
 }
