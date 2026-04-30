@@ -59,10 +59,18 @@ public class ActionLogService {
     @PostConstruct
     public void init() throws IOException {
         actionsDir = Paths.get(actionsDirPath);
-        Files.createDirectories(actionsDir);
         metaLogPath = actionsDir.resolve("meta.log");
-        // 重放所有日志，构建内存状态（交易日志 + 元数据日志）
-        replayAllActions();
+        // 此时不重放，等待 Git 服务准备好后再调用 loadLogs
+    }
+    public void loadLogs() throws IOException {
+        if (Files.exists(actionsDir)) {
+            replayAllActions();
+        } else {
+            log.info("No actions directory found, starting fresh");
+            // 创建目录
+            Files.createDirectories(actionsDir);
+            metaLogPath = actionsDir.resolve("meta.log");
+        }
     }
 
     // 获取指定月份的交易日志路径--修改 getTransactionLogPath 为按日

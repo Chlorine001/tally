@@ -32,3 +32,4 @@ build/
 ### VS Code ###
 .vscode/
 /repo_cache/
+/src/main/resources/application.properties
