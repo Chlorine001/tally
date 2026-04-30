@@ -32,9 +32,9 @@ public class TagServiceImpl implements TagService {
     private static final String TAGS_KEY = "tags";
 
     // 使用构造器注入，让 Spring 提供 ActionLogService 的 bean
-    public TagServiceImpl(ActionLogService actionLogService) {
+    public TagServiceImpl(ActionLogService actionLogService, ObjectMapper objectMapper) {
         this.actionLogService = actionLogService;
-        this.objectMapper = new ObjectMapper();
+        this.objectMapper = objectMapper;
     }
 
     @Override

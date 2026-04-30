@@ -36,11 +36,8 @@ public class TransactionServiceImpl implements TransactionService {
     private final ObjectMapper objectMapper;
     private final ReentrantReadWriteLock fileLock = new ReentrantReadWriteLock();
 
-    public TransactionServiceImpl() {
-        this.objectMapper = new ObjectMapper();
-        this.objectMapper.registerModule(new JavaTimeModule());
-        this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        this.objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+    public TransactionServiceImpl(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
         // 确保 data 目录存在
         try {
             Files.createDirectories(Paths.get(DATA_DIR));

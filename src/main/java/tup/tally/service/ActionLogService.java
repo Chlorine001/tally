@@ -51,18 +51,9 @@ public class ActionLogService {
     // 记录每个元数据 key 的最新时间戳，用于 LWW
     private final Map<String, Long> metaTimestamps = new ConcurrentHashMap<>();
 
-    public ActionLogService() {
-        // 用于业务读写（保留 pretty print）
-        this.objectMapper = new ObjectMapper();
-        this.objectMapper.registerModule(new JavaTimeModule());
-        this.objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
-        this.objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-
-        // 专门用于action操作日志的 mapper（紧凑，单行）
-        this.actionMapper = new ObjectMapper();
-        this.actionMapper.registerModule(new JavaTimeModule());
-        this.actionMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        // 不启用 INDENT_OUTPUT，确保输出为一行
+    public ActionLogService(ObjectMapper objectMapper, ObjectMapper actionMapper) {
+        this.objectMapper = objectMapper;
+        this.actionMapper = actionMapper;
     }
 
     @PostConstruct
