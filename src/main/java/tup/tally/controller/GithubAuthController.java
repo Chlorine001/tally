@@ -36,20 +36,18 @@ public class GithubAuthController {
     @Value("${github.client.secret}")
     private String clientSecret;
 
+    @Value("${VUE_APP_API_BASE_URL}")
+    private String apiBaseUrl;
+
     private final ObjectMapper objectMapper;
 
     public GithubAuthController(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 
-    @GetMapping("/debug/token")
-    public String debugToken() {
-        return "Token present: " + (GitSyncService.getToken() != null);
-    }
-
     @GetMapping("/login")
     public void login(HttpServletResponse response) throws IOException {
-        String redirectUri = "http://localhost:8080/auth/github/callback";
+        String redirectUri = apiBaseUrl + "/auth/github/callback";
         String url = "https://github.com/login/oauth/authorize?client_id=" + clientId +
                 "&redirect_uri=" + redirectUri + "&scope=repo";
         response.sendRedirect(url);
@@ -73,7 +71,7 @@ public class GithubAuthController {
         String body = "client_id=" + clientId +
                 "&client_secret=" + clientSecret +
                 "&code=" + code +
-                "&redirect_uri=" + "http://localhost:8080/auth/github/callback";
+                "&redirect_uri=" + apiBaseUrl + "/auth/github/callback";
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create("https://github.com/login/oauth/access_token"))
@@ -83,7 +81,6 @@ public class GithubAuthController {
                 .build();
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
         String responseBody = response.body();
-        log.info("GitHub response: {}", responseBody);  // 打印响应内容便于调试
 
         // 解析 JSON 获取 access_token
         JsonNode node = objectMapper.readTree(responseBody);
