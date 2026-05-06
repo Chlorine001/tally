@@ -56,7 +56,7 @@ public class TagController {
     public Tag getTagById(@PathVariable String id) {
         Tag tag = tagService.findById(id);
         if (tag == null) {
-            throw new RuntimeException("Tag not found: " + id);
+            throw new RuntimeException("标签不存在: " + id);
         }
         return tag;
     }
@@ -76,7 +76,7 @@ public class TagController {
     public Tag searchTagByName(@RequestParam String name) {
         Tag tag = tagService.findByName(name);
         if (tag == null) {
-            throw new RuntimeException("Tag not found: " + name);
+            throw new RuntimeException("该标签不存在: " + name);
         }
         return tag;
     }

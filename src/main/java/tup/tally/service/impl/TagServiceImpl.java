@@ -41,7 +41,7 @@ public class TagServiceImpl implements TagService {
     public Tag saveTag(Tag tag) throws Exception {
         // 参数校验
         if (tag.getName() == null || tag.getName().trim().isEmpty()) {
-            throw new IllegalArgumentException("Tag name cannot be empty");
+            throw new IllegalArgumentException("标签名不允许为空！");
         }
         // 新建或更新
         boolean isNew = (tag.getId() == null);
@@ -51,7 +51,7 @@ public class TagServiceImpl implements TagService {
         } else {
             Tag existing = findById(tag.getId());
             if (existing == null) {
-                throw new RuntimeException("Tag not found: " + tag.getId());
+                throw new RuntimeException("标签更新失败: " + tag.getId());
             }
             tag.setCreatedAt(existing.getCreatedAt());
         }
@@ -60,7 +60,7 @@ public class TagServiceImpl implements TagService {
         // 唯一性校验（排除自身）
         Tag conflict = findByName(tag.getName());
         if (conflict != null && !conflict.getId().equals(tag.getId())) {
-            throw new RuntimeException("Tag name already exists: " + tag.getName());
+            throw new RuntimeException("标签名称重复: " + tag.getName());
         }
 
         // 获取当前所有标签（Map形式）
@@ -80,7 +80,7 @@ public class TagServiceImpl implements TagService {
     public void deleteTag(String id) throws Exception {
         Map<String, Tag> current = getAllTagsMap();
         if (current.remove(id) == null) {
-            throw new RuntimeException("Tag not found: " + id);
+            throw new RuntimeException("标签已经被删除: " + id);
         }
         MetaAction action = new MetaAction();
         action.setKey(TAGS_KEY);
@@ -143,7 +143,7 @@ public class TagServiceImpl implements TagService {
             action.setValue(tagMap);
             actionLogService.appendAction(action);
             Files.move(legacyPath, legacyPath.resolveSibling("tags.json.back"));
-            log.info("Migrated legacy tags to CRDT");
+            log.info("Migrated legacy tags to CRDT!");
         }
     }
 }
