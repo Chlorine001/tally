@@ -23,6 +23,7 @@ import java.time.YearMonth;
 import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -131,7 +132,7 @@ public class ActionLogService {
             if (lastTs == null || ts > lastTs) {
                 metaData.put(key, meta.getValue());
                 metaTimestamps.put(key, ts);
-                log.info("Meta updated: {} at {}", key, ts);
+//                log.info("Meta updated: {} at {}", key, ts);
             } else {
                 log.debug("Ignored older meta action for key {} (ts {} <= {})", key, ts, lastTs);
             }
@@ -226,6 +227,21 @@ public class ActionLogService {
     // 对外提供当前状态-交易查询
     public Map<String, Transaction> getAllTransactions() {
         return new HashMap<>(transactions);
+    }
+
+    public List<Transaction> getTransactionsBetween(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null || endDate == null) {
+            return Collections.emptyList();
+        }
+        // 将 LocalDate 转为字符串 "yyyy-MM-dd" 边界
+        String start = startDate.toString();
+        String end = endDate.toString();
+        return transactions.values().stream()
+                .filter(tx -> {
+                    String txDate = String.valueOf(tx.getDate());
+                    return txDate.compareTo(start) >= 0 && txDate.compareTo(end) <= 0;
+                })
+                .collect(Collectors.toList());
     }
 
     public Transaction getTransaction(String id) {
