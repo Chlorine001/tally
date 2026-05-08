@@ -96,6 +96,10 @@ public class GitSyncService {
     }
 
     public void commitAndPush(String message) {
+        if (getToken() == null) {
+            log.warn("Git not initialized. Please login first.");
+            return;
+        }
         executor.submit(() -> {
             try {
                 // 添加所有变更
